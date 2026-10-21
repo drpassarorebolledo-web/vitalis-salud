@@ -40,7 +40,7 @@ Analiza la siguiente grabación de audio de la consulta médica:
 • ...`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.8-flash',
+            model: 'gemini-1.5-flash',
             contents: [
                 {
                     inlineData: {
@@ -70,7 +70,7 @@ Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
 Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.8-flash',
+            model: 'gemini-1.5-flash',
             contents: prompt
         });
 
