@@ -24,7 +24,7 @@ app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
         const prompt = `Eres un asistente médico experto que apoya al Dr. Anthony José Passaro Rebolledo en Medicina General y Familiar para Vitalis Salud.
 Analiza la siguiente grabación de audio de la consulta médica:
 1. Identifica y separa la voz del médico (Dr. Passaro) de la voz del paciente o acompañante.
-2. Filtra comentarios irrelevantes o ruído de fondo.
+2. Filtra comentarios irrelevantes o ruido de fondo.
 3. Genera una Nota Clínica estructurada con el siguiente formato exacto:
 
 [HISTORIA CLÍNICA - VITALIS SALUD]
@@ -40,7 +40,7 @@ Analiza la siguiente grabación de audio de la consulta médica:
 • ...`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.8-flash',
             contents: [
                 {
                     inlineData: {
@@ -70,7 +70,7 @@ Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
 Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.8-flash',
             contents: prompt
         });
 
