@@ -1,388 +1,86 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vitalis Salud - Suite Clínica IA</title>
-    <style>
-        :root {
-            --primary-jade: #006655;
-            --secondary-jade: #004d40;
-            --light-jade: #eef7f5;
-            --accent-green: #2e7d32;
-            --bg-gray: #f8f9fa;
-        }
+const express = require('express');
+const { GoogleGenAI } = require('@google/genai');
+const path = require('path');
+const multer = require('multer');
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-gray);
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
+const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
 
-        .header {
-            background: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-            border-left: 6px solid var(--primary-jade);
-        }
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-        .header h1 {
-            margin: 0;
-            color: var(--primary-jade);
-            font-size: 26px;
-        }
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-        .header p {
-            margin: 5px 0 0 0;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .main-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 900px) {
-            .main-container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-
-        .card h2 {
-            margin-top: 0;
-            color: var(--primary-jade);
-            font-size: 18px;
-            border-bottom: 2px solid var(--light-jade);
-            padding-bottom: 8px;
-        }
-
-        .audio-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .btn {
-            padding: 10px 18px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-record { background-color: #d32f2f; color: white; }
-        .btn-stop { background-color: #555; color: white; }
-        .btn-primary { background-color: var(--primary-jade); color: white; }
-        .btn-secondary { background-color: #455a64; color: white; }
-
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .meter-container {
-            height: 12px;
-            background: #e0e0e0;
-            border-radius: 6px;
-            overflow: hidden;
-            margin-bottom: 15px;
-        }
-
-        .meter-bar {
-            height: 100%;
-            width: 0%;
-            background: var(--accent-green);
-            transition: width 0.1s ease;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #ddd;
-        }
-
-        .tab-btn {
-            padding: 8px 15px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-weight: bold;
-            color: #666;
-            border-bottom: 3px solid transparent;
-        }
-
-        .tab-btn.active {
-            color: var(--primary-jade);
-            border-bottom-color: var(--primary-jade);
-        }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        textarea, input, select {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 12px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-family: inherit;
-        }
-
-        textarea { height: 140px; resize: vertical; }
-
-        .document-preview {
-            background: white;
-            border: 1px solid #ccc;
-            padding: 30px;
-            min-height: 250px;
-            border-radius: 4px;
-            white-space: pre-wrap;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
-        @media print {
-            body * { visibility: hidden; }
-            .printable, .printable * { visibility: visible; }
-            .printable { position: absolute; left: 0; top: 0; width: 100%; }
-        }
-    </style>
-</head>
-<body>
-
-<div class="header">
-    <h1>Vitalis Salud - Asistente Clínico Inteligente</h1>
-    <p><strong>Dr. Anthony José Passaro Rebolledo</strong> | Medicina General y Familiar</p>
-</div>
-
-<div class="main-container">
-    
-    <!-- Columna Izquierda: Grabación y Nota Clínica -->
-    <div class="card">
-        <h2>1. Grabación y Ficha Clínica (NOA Note)</h2>
-        
-        <div class="audio-controls">
-            <button id="btnRecord" class="btn btn-record" onclick="startRecording()">🎤 Iniciar Grabación</button>
-            <button id="btnStop" class="btn btn-stop" onclick="stopRecording()" disabled>⏹️ Detener</button>
-        </div>
-
-        <div class="meter-container">
-            <div id="meterBar" class="meter-bar"></div>
-        </div>
-
-        <button class="btn btn-primary" style="width:100%; margin-bottom: 15px;" onclick="generarNota()">✨ Generar Nota Clínica y Transcripción</button>
-
-        <label><strong>Nombre / Rut Paciente:</strong></label>
-        <input type="text" id="patientInfo" placeholder="Ej: Juan Pérez - 12.345.678-9">
-
-        <label><strong>Evolución / Nota Clínica Generada:</strong></label>
-        <textarea id="clinicalNote" placeholder="La nota de la consulta procesada por IA aparecerá aquí..."></textarea>
-    </div>
-
-    <!-- Columna Derecha: Documentos (Recetas, Certificados, Órdenes) -->
-    <div class="card">
-        <h2>2. Documentos Médicos</h2>
-        
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('receta')">Receta Médica</button>
-            <button class="tab-btn" onclick="switchTab('certificado')">Certificado Aptitud</button>
-            <button class="tab-btn" onclick="switchTab('orden')">Órdenes Exámenes</button>
-        </div>
-
-        <!-- TAB RECETA -->
-        <div id="tab-receta" class="tab-content active">
-            <label>Dictado o indicaciones de medicamentos:</label>
-            <textarea id="dictadoReceta" placeholder="Ej: Paracetamol 1g cada 8 horas por 3 días. Amoxicilina 875mg cada 12 horas por 7 días."></textarea>
-            <button class="btn btn-primary" onclick="generarDocumento('receta')">Formatear Receta</button>
-        </div>
-
-        <!-- TAB CERTIFICADO -->
-        <div id="tab-certificado" class="tab-content">
-            <label>Indicación / Diagnóstico del Certificado:</label>
-            <textarea id="dictadoCertificado" placeholder="Ej: Se certifica que el paciente se encuentra apto para realizar actividad física intensa."></textarea>
-            <button class="btn btn-primary" onclick="generarDocumento('certificado')">Formatear Certificado</button>
-        </div>
-
-        <!-- TAB ÓRDENES DE EXÁMENES -->
-        <div id="tab-orden" class="tab-content">
-            <label>Exámenes a solicitar:</label>
-            <textarea id="dictadoOrden" placeholder="Ej: Hemograma completo, Perfil lipídico, TSH, Ecografía abdominal."></textarea>
-            <button class="btn btn-primary" onclick="generarDocumento('orden')">Formatear Órdenes</button>
-        </div>
-
-        <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h3>Vista Previa del Documento</h3>
-            <button class="btn btn-secondary" onclick="imprimirDoc()">🖨️ Imprimir / PDF</button>
-        </div>
-
-        <div id="documentPreview" class="document-preview printable">
-            (Seleccione un documento para visualizar)
-        </div>
-    </div>
-
-</div>
-
-<script>
-let mediaRecorder;
-let audioChunks = [];
-let audioContext;
-let analyser;
-let microphone;
-let javascriptNode;
-
-async function startRecording() {
+// Endpoint para procesar el audio grabado
+app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        audioChunks = [];
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'No se recibió ningún archivo de audio.' });
+        }
 
-        mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
-        mediaRecorder.start();
+        const audioBase64 = req.file.buffer.toString('base64');
+        const mimeType = req.file.mimetype || 'audio/webm';
 
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        microphone = audioContext.createMediaStreamSource(stream);
-        javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+        const prompt = `Eres un asistente médico experto que apoya al Dr. Anthony José Passaro Rebolledo en Medicina General y Familiar para Vitalis Salud.
+Analiza la siguiente grabación de audio de la consulta médica:
+1. Identifica y separa la voz del médico (Dr. Passaro) de la voz del paciente o acompañante.
+2. Filtra comentarios irrelevantes o ruido de fondo.
+3. Genera una Nota Clínica estructurada con el siguiente formato exacto:
 
-        analyser.smoothingTimeConstant = 0.8;
-        analyser.fftSize = 1024;
+[HISTORIA CLÍNICA - VITALIS SALUD]
+• Motivo de consulta: ...
+• Resumen de la consulta / Diálogo procesado:
+  - Dr. Passaro: ...
+  - Paciente: ...
 
-        microphone.connect(analyser);
-        analyser.connect(javascriptNode);
-        javascriptNode.connect(audioContext.destination);
+[EXAMEN FÍSICO Y SÍNTOMAS]
+• ...
 
-        javascriptNode.onaudioprocess = () => {
-            const array = new Uint8Array(analyser.frequencyBinCount);
-            analyser.getByteFrequencyData(array);
-            let values = 0;
-            for (let i = 0; i < array.length; i++) values += array[i];
-            const average = values / array.length;
-            document.getElementById('meterBar').style.width = Math.min(100, average * 2) + '%';
-        };
+[PLAN Y DIAGNÓSTICO]
+• ...`;
 
-        document.getElementById('btnRecord').disabled = true;
-        document.getElementById('btnStop').disabled = false;
-    } catch (err) {
-        alert('Error al acceder al micrófono: ' + err.message);
-    }
-}
-
-function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        if (audioContext) audioContext.close();
-        document.getElementById('btnRecord').disabled = false;
-        document.getElementById('btnStop').disabled = true;
-        document.getElementById('meterBar').style.width = '0%';
-    }
-}
-
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    
-    if (event) {
-        event.target.classList.add('active');
-    }
-    document.getElementById('tab-' + tabName).classList.add('active');
-}
-
-async function generarNota() {
-    if (audioChunks.length === 0) {
-        alert('Por favor inicie y detenga una grabación antes de generar la nota.');
-        return;
-    }
-
-    const noteArea = document.getElementById('clinicalNote');
-    noteArea.value = "Enviando audio a Gemini... Analizando y separando voces...";
-
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    const formData = new FormData();
-    formData.append('audio', audioBlob, 'consulta.webm');
-
-    try {
-        const res = await fetch('/api/process-audio', {
-            method: 'POST',
-            body: formData
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.8-flash',
+            contents: [
+                {
+                    inlineData: {
+                        mimeType: mimeType,
+                        data: audioBase64
+                    }
+                },
+                { text: prompt }
+            ]
         });
 
-        const data = await res.json();
-        if (data.success) {
-            noteArea.value = data.text;
-        } else {
-            noteArea.value = 'Error procesando audio: ' + data.error;
-        }
-    } catch (err) {
-        noteArea.value = 'Error de conexión con el servidor.';
+        res.json({ success: true, text: response.text });
+    } catch (error) {
+        console.error("Error procesando audio:", error);
+        res.status(500).json({ success: false, error: error.message });
     }
-}
+});
 
-async function generarDocumento(tipo) {
-    const paciente = document.getElementById('patientInfo').value || "Paciente General";
-    const preview = document.getElementById('documentPreview');
-    
-    let dictado = "";
-    if (tipo === 'receta') dictado = document.getElementById('dictadoReceta').value;
-    else if (tipo === 'certificado') dictado = document.getElementById('dictadoCertificado').value;
-    else dictado = document.getElementById('dictadoOrden').value;
-
-    if (!dictado.trim()) {
-        alert('Ingrese el contenido o dictado para el documento.');
-        return;
-    }
-
-    preview.innerText = "Formateando documento con IA...";
-
+// Endpoint para dar formato a documentos (recetas, certificados, órdenes)
+app.post('/api/format-doc', async (req, res) => {
     try {
-        const res = await fetch('/api/format-doc', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: dictado, type: tipo, patient: paciente })
+        const { text, type, patient } = req.body;
+        const prompt = `Eres un asistente para el Dr. Anthony José Passaro Rebolledo (Medicina General y Familiar) en Vitalis Salud.
+Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
+"${text}"
+
+Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.8-flash',
+            contents: prompt
         });
 
-        const data = await res.json();
-        const textoFormateado = data.success ? data.text : dictado;
-
-        preview.innerHTML = `
-            <div style="text-align: center; border-bottom: 2px solid #006655; padding-bottom: 10px; margin-bottom: 15px;">
-                <h2 style="color: #006655; margin:0;">VITALIS SALUD</h2>
-                <p style="margin: 3px 0;"><strong>Dr. Anthony José Passaro Rebolledo</strong></p>
-                <small>Medicina General y Familiar</small>
-            </div>
-            <p><strong>Paciente:</strong> ${paciente}</p>
-            <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-CL')}</p>
-            <hr style="border: 0.5px solid #eee;">
-            <h4 style="color: #006655; text-transform: uppercase;">${tipo.toUpperCase()}</h4>
-            <div style="font-size: 15px; white-space: pre-wrap;">${textoFormateado}</div>
-        `;
-    } catch (err) {
-        alert('Error al conectar con el servidor.');
+        res.json({ success: true, text: response.text });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
-}
+});
 
-function imprimirDoc() {
-    window.print();
-}
-</script>
-
-</body>
-</html>
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor de Vitalis Salud activo en puerto ${PORT}`);
+});
