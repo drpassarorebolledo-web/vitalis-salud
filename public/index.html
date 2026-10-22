@@ -139,19 +139,18 @@
 
         .document-preview {
             background: white;
-            border: 1px solid #ccc;
-            padding: 30px;
-            min-height: 230px;
-            border-radius: 4px;
-            white-space: pre-wrap;
-            font-size: 14px;
-            line-height: 1.5;
+            border: 1px solid #dcdcdc;
+            padding: 35px;
+            min-height: 280px;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
         }
 
         @media print {
             body * { visibility: hidden; }
             .printable, .printable * { visibility: visible; }
-            .printable { position: absolute; left: 0; top: 0; width: 100%; }
+            .printable { position: absolute; left: 0; top: 0; width: 100%; border: none; padding: 0; }
         }
     </style>
 </head>
@@ -186,7 +185,7 @@
         <textarea id="clinicalNote" placeholder="La nota de la consulta procesada por IA aparecerá aquí..."></textarea>
     </div>
 
-    <!-- Columna Derecha: Documentos con Dictado Continuo Sin Borrado -->
+    <!-- Columna Derecha: Documentos con Dictado Continuo -->
     <div class="card">
         <h2>2. Documentos Médicos</h2>
         
@@ -225,7 +224,7 @@
         </div>
 
         <div id="documentPreview" class="document-preview printable">
-            (Seleccione un documento para visualizar)
+            <p style="color: #777; text-align: center; margin-top: 60px;">(Seleccione un documento y presione formatear para visualizar)</p>
         </div>
     </div>
 
@@ -241,7 +240,7 @@ let javascriptNode;
 
 let recognition;
 let isDictating = false;
-let finalTranscript = ''; // Acumula de forma fija todo el texto confirmado
+let finalTranscript = '';
 let activeTextarea = null;
 let activeBtn = null;
 
@@ -254,7 +253,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
     recognition.onresult = (event) => {
         let interimTranscript = '';
-
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
                 finalTranscript += event.results[i][0].transcript + ' ';
@@ -262,35 +260,25 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                 interimTranscript += event.results[i][0].transcript;
             }
         }
-
         if (activeTextarea) {
             activeTextarea.value = finalTranscript + interimTranscript;
         }
     };
 
     recognition.onend = () => {
-        // Reinicio automático inmediato si la grabación debe continuar escuchando
         if (isDictating) {
-            try {
-                recognition.start();
-            } catch (e) {
-                console.warn("Reorganizando servicio de reconocimiento de voz...");
-            }
+            try { recognition.start(); } catch (e) {}
         }
     };
 
     recognition.onerror = (event) => {
-        console.error("Error dictado:", event.error);
-        if (event.error === 'no-speech' && isDictating) {
-            // Ignorar errores por silencio y mantenerse activo
-            return;
-        }
+        if (event.error === 'no-speech' && isDictating) return;
     };
 }
 
 function toggleDictado(textareaId, buttonId) {
     if (!recognition) {
-        alert('El dictado por voz no es compatible con este navegador. Por favor use Google Chrome o Microsoft Edge.');
+        alert('El dictado por voz no es compatible con este navegador. Use Google Chrome o Microsoft Edge.');
         return;
     }
 
@@ -304,17 +292,10 @@ function toggleDictado(textareaId, buttonId) {
         activeBtn.innerText = '🎤 Dictar por Voz';
     } else {
         isDictating = true;
-        // Inicializar la transcripción final con lo que ya contenga el cuadro de texto
         finalTranscript = activeTextarea.value ? activeTextarea.value.trim() + ' ' : '';
-        
         activeBtn.style.backgroundColor = '#d32f2f';
-        activeBtn.innerText = '⏹️ Detener Dictado (Escuchando constantemente...)';
-        
-        try {
-            recognition.start();
-        } catch (e) {
-            console.log("Servicio iniciado.");
-        }
+        activeBtn.innerText = '⏹️ Detener Dictado (Escuchando...)';
+        try { recognition.start(); } catch (e) {}
     }
 }
 
@@ -367,7 +348,6 @@ function stopRecording() {
 
 function switchTab(tabName) {
     if (isDictating && activeBtn) {
-        // Detener dictado activo antes de cambiar de pestaña
         isDictating = false;
         recognition.stop();
         activeBtn.style.backgroundColor = '#2e7d32';
@@ -412,7 +392,8 @@ async function generarNota() {
 }
 
 async function generarDocumento(tipo) {
-    const paciente = document.getElementById('patientInfo').value || "Paciente General";
+    const pacienteInput = document.getElementById('patientInfo').value.trim();
+    const paciente = pacienteInput !== "" ? pacienteInput : "Sin especificar";
     const preview = document.getElementById('documentPreview');
     
     let dictado = "";
@@ -425,7 +406,7 @@ async function generarDocumento(tipo) {
         return;
     }
 
-    preview.innerText = "Formateando documento con IA...";
+    preview.innerHTML = `<p style="color: #006655; text-align: center; margin-top: 60px;"><strong>Formateando documento y desglosando indicaciones con IA...</strong></p>`;
 
     try {
         const res = await fetch('/api/format-doc', {
@@ -437,17 +418,27 @@ async function generarDocumento(tipo) {
         const data = await res.json();
         const textoFormateado = data.success ? data.text : dictado;
 
+        let tituloTipo = "RECETA MÉDICA";
+        if (tipo === 'certificado') tituloTipo = "CERTIFICADO DE APTITUD";
+        if (tipo === 'orden') tituloTipo = "ÓRDENES DE EXÁMENES";
+
         preview.innerHTML = `
-            <div style="text-align: center; border-bottom: 2px solid #006655; padding-bottom: 10px; margin-bottom: 15px;">
-                <h2 style="color: #006655; margin:0;">VITALIS SALUD</h2>
-                <p style="margin: 3px 0;"><strong>Dr. Anthony José Passaro Rebolledo</strong></p>
-                <small>Medicina General y Familiar</small>
+            <div style="text-align: center; border-bottom: 2px solid #006655; padding-bottom: 12px; margin-bottom: 20px;">
+                <h2 style="color: #006655; margin:0; font-size: 22px; letter-spacing: 1px;">VITALIS SALUD</h2>
+                <p style="margin: 4px 0; font-size: 15px;"><strong>Dr. Anthony José Passaro Rebolledo</strong></p>
+                <small style="color: #555;">Medicina General y Familiar</small>
             </div>
-            <p><strong>Paciente:</strong> ${paciente}</p>
-            <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-CL')}</p>
-            <hr style="border: 0.5px solid #eee;">
-            <h4 style="color: #006655; text-transform: uppercase;">${tipo.toUpperCase()}</h4>
-            <div style="font-size: 15px; white-space: pre-wrap;">${textoFormateado}</div>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; background: #f9fbfb; padding: 10px; border-radius: 6px;">
+                <div><strong>Paciente:</strong> <span style="border-bottom: 1px dotted #999; padding-bottom: 2px;">${paciente}</span></div>
+                <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-CL')}</div>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h3 style="color: #004d40; border-bottom: 1px solid #006655; display: inline-block; padding-bottom: 4px; margin: 0; text-transform: uppercase;">${tituloTipo}</h3>
+            </div>
+
+            <div style="font-size: 15px; line-height: 1.8; white-space: pre-wrap; padding: 5px 10px;">${textoFormateado}</div>
         `;
     } catch (err) {
         alert('Error al conectar con el servidor.');
