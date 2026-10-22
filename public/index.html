@@ -81,6 +81,7 @@
         .btn-stop { background-color: #555; color: white; }
         .btn-primary { background-color: var(--primary-jade); color: white; }
         .btn-secondary { background-color: #455a64; color: white; }
+        .btn-copy { background-color: #0288d1; color: white; width: 100%; margin-top: 8px; }
         .btn-dictate { background-color: #2e7d32; color: white; margin-bottom: 10px; }
 
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -183,9 +184,11 @@
 
         <label><strong>Evolución / Nota Clínica Generada:</strong></label>
         <textarea id="clinicalNote" placeholder="La nota de la consulta procesada por IA aparecerá aquí..."></textarea>
+        
+        <button id="btnCopyNote" class="btn btn-copy" onclick="copiarNota()">📋 Copiar Nota Clínica</button>
     </div>
 
-    <!-- Columna Derecha: Documentos con Dictado Continuo -->
+    <!-- Columna Derecha: Documentos con Dictado y Formateo Desglosado -->
     <div class="card">
         <h2>2. Documentos Médicos</h2>
         
@@ -391,6 +394,26 @@ async function generarNota() {
     }
 }
 
+function copiarNota() {
+    const noteArea = document.getElementById('clinicalNote');
+    if (!noteArea.value.trim()) {
+        alert('No hay ninguna nota para copiar.');
+        return;
+    }
+    
+    navigator.clipboard.writeText(noteArea.value).then(() => {
+        const btn = document.getElementById('btnCopyNote');
+        btn.innerText = '✅ ¡Copiado al portapapeles!';
+        btn.style.backgroundColor = '#2e7d32';
+        setTimeout(() => {
+            btn.innerText = '📋 Copiar Nota Clínica';
+            btn.style.backgroundColor = '#0288d1';
+        }, 2000);
+    }).catch(err => {
+        alert('No se pudo copiar el texto automáticamente.');
+    });
+}
+
 async function generarDocumento(tipo) {
     const pacienteInput = document.getElementById('patientInfo').value.trim();
     const paciente = pacienteInput !== "" ? pacienteInput : "Sin especificar";
@@ -430,7 +453,7 @@ async function generarDocumento(tipo) {
             </div>
             
             <div style="display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; background: #f9fbfb; padding: 10px; border-radius: 6px;">
-                <div><strong>Paciente:</strong> <span style="border-bottom: 1px dotted #999; padding-bottom: 2px;">${paciente}</span></div>
+                <div><strong>Paciente:</strong> <span>${paciente}</span></div>
                 <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-CL')}</div>
             </div>
 
@@ -438,7 +461,7 @@ async function generarDocumento(tipo) {
                 <h3 style="color: #004d40; border-bottom: 1px solid #006655; display: inline-block; padding-bottom: 4px; margin: 0; text-transform: uppercase;">${tituloTipo}</h3>
             </div>
 
-            <div style="font-size: 15px; line-height: 1.8; white-space: pre-wrap; padding: 5px 10px;">${textoFormateado}</div>
+            <div style="font-size: 15px; line-height: 2; padding: 5px 10px;">${textoFormateado}</div>
         `;
     } catch (err) {
         alert('Error al conectar con el servidor.');
