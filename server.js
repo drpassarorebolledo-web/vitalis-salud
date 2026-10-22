@@ -14,7 +14,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function generateWithRetry(contents) {
-    const modelName = 'gemini-3.8-flash';
+    const modelName = 'gemini-2.5-flash';
     let attempts = 0;
     const maxAttempts = 3;
 
@@ -78,24 +78,25 @@ Analiza la siguiente grabación de audio de la consulta médica:
         console.error("Error procesando audio:", error);
         res.status(500).json({ 
             success: false, 
-            error: "La API de Gemini está experimentando tráfico alto. Por favor, reintente en unos segundos." 
+            error: "La API está experimentando tráfico alto. Por favor, reintente en unos segundos." 
         });
     }
 });
 
-// Endpoint para formatear documentos con desglose ordenado por ítem
+// Endpoint para estructurar y desglosar documentos médicos en formato HTML limpio
 app.post('/api/format-doc', async (req, res) => {
     try {
         const { text, type, patient } = req.body;
-        const prompt = `Eres un asistente médico experto para el Dr. Anthony José Passaro Rebolledo (Medicina General y Familiar) en Vitalis Salud.
-Toma el siguiente dictado o notas para un(a) ${type} del paciente ${patient}:
+        const prompt = `Eres un asistente médico profesional para el Dr. Anthony José Passaro Rebolledo (Medicina General y Familiar) en Vitalis Salud.
+Toma el siguiente dictado o texto sobre un(a) ${type} del paciente ${patient}:
 "${text}"
 
-INSTRUCCIONES DE FORMATO:
-- Desglosa y separa cada medicamento, indicación o examen de forma independiente.
-- Cada ítem debe ir en una línea o párrafo separado, claramente espaciado del siguiente (por ejemplo, numerado o con viñetas limpias: 1. ..., 2. ...).
-- No amontones todo en un solo párrafo corrido. Deja suficiente espacio visual (saltos de línea dobles) entre cada indicación.
-- Entrega únicamente el contenido estructurado y profesional, sin texto introductorio ni explicaciones adicionales.`;
+REGLAS DE FORMATEO OBLIGATORIAS:
+1. Desglosa cada elemento (medicamento, dosis, frecuencia, indicación o examen) en una línea separada y numerada o con viñeta.
+2. Si se trata de una receta, escribe el nombre del medicamento en negrita (ej: **Paracetamol 500 mg**) y las indicaciones abajo o al lado claramente visibles.
+3. Si en el dictado vino el nombre o RUT del paciente dentro del texto, elimínalo de las indicaciones (solo deja el contenido propio del documento).
+4. Separa cada ítem con un espacio visual claro (<br><br> o párrafos HTML separadas).
+5. Devuelve directamente el resultado estructurado en HTML sin rodeos ni saludos.`;
 
         const textResult = await generateWithRetry(prompt);
         res.json({ success: true, text: textResult });
