@@ -9,7 +9,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Inicialización de la API oficial con la variable de entorno de Render
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Endpoint para procesar el audio de la consulta médica
@@ -41,7 +40,7 @@ Analiza la siguiente grabación de audio de la consulta médica:
 • ...`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.0-flash',
             contents: [
                 {
                     inlineData: {
@@ -71,7 +70,7 @@ Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
 Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.0-flash',
             contents: prompt
         });
 
