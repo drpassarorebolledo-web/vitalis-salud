@@ -1,7 +1,7 @@
 {
   "name": "vitalis-salud",
   "version": "1.0.0",
-  "description": "Asistente Clínico IA - Vitalis Salud",
+  "description": "Suite Clinica Vitalis Salud",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
