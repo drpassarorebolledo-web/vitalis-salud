@@ -9,9 +9,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Inicialización de la API oficial con la variable de entorno de Render
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Endpoint para procesar el audio grabado con el modelo universal actual
+// Endpoint para procesar el audio de la consulta médica
 app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
     try {
         if (!req.file) {
@@ -40,7 +41,7 @@ Analiza la siguiente grabación de audio de la consulta médica:
 • ...`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
+            model: 'gemini-1.5-flash',
             contents: [
                 {
                     inlineData: {
@@ -55,7 +56,7 @@ Analiza la siguiente grabación de audio de la consulta médica:
         res.json({ success: true, text: response.text });
     } catch (error) {
         console.error("Error procesando audio:", error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: error.message || error.toString() });
     }
 });
 
@@ -70,13 +71,14 @@ Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
 Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
+            model: 'gemini-1.5-flash',
             contents: prompt
         });
 
         res.json({ success: true, text: response.text });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error("Error formateando documento:", error);
+        res.status(500).json({ success: false, error: error.message || error.toString() });
     }
 });
 
