@@ -11,6 +11,26 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// Función para intentar con el modelo principal y alternar si hay sobrecarga
+async function generateWithFallback(contents) {
+    const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+    let lastError = null;
+
+    for (const modelName of models) {
+        try {
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: contents
+            });
+            return response.text;
+        } catch (err) {
+            console.warn(`Saturación o error con ${modelName}, reintentando...`);
+            lastError = err;
+        }
+    }
+    throw lastError;
+}
+
 // Endpoint para procesar el audio de la consulta médica
 app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
     try {
@@ -39,23 +59,24 @@ Analiza la siguiente grabación de audio de la consulta médica:
 [PLAN Y DIAGNÓSTICO]
 • ...`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: [
-                {
-                    inlineData: {
-                        mimeType: mimeType,
-                        data: audioBase64
-                    }
-                },
-                { text: prompt }
-            ]
-        });
+        const contents = [
+            {
+                inlineData: {
+                    mimeType: mimeType,
+                    data: audioBase64
+                }
+            },
+            { text: prompt }
+        ];
 
-        res.json({ success: true, text: response.text });
+        const textResult = await generateWithFallback(contents);
+        res.json({ success: true, text: textResult });
     } catch (error) {
         console.error("Error procesando audio:", error);
-        res.status(500).json({ success: false, error: error.message || error.toString() });
+        res.status(500).json({ 
+            success: false, 
+            error: "El servicio se encuentra con alta demanda en este momento. Por favor intente nuevamente en unos segundos." 
+        });
     }
 });
 
@@ -69,12 +90,8 @@ Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
 
 Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: prompt
-        });
-
-        res.json({ success: true, text: response.text });
+        const textResult = await generateWithFallback(prompt);
+        res.json({ success: true, text: textResult });
     } catch (error) {
         console.error("Error formateando documento:", error);
         res.status(500).json({ success: false, error: error.message || error.toString() });
