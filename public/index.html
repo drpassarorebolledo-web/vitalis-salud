@@ -186,7 +186,7 @@
         <textarea id="clinicalNote" placeholder="La nota de la consulta procesada por IA aparecerá aquí..."></textarea>
     </div>
 
-    <!-- Columna Derecha: Documentos con Dictado por Voz -->
+    <!-- Columna Derecha: Documentos con Dictado Acumulativo -->
     <div class="card">
         <h2>2. Documentos Médicos</h2>
         
@@ -240,8 +240,8 @@ let microphone;
 let javascriptNode;
 let recognition;
 let isDictating = false;
+let baseText = "";
 
-// Reconocimiento de Voz para Dictado Directo (Web Speech API)
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
@@ -265,17 +265,24 @@ function toggleDictado(textareaId, buttonId) {
         button.style.backgroundColor = '#2e7d32';
         button.innerText = '🎤 Dictar por Voz';
     } else {
+        // Guardar el texto existente como base para acumular lo nuevo
+        baseText = textarea.value.trim();
+        if (baseText.length > 0) {
+            baseText += " ";
+        }
+
         recognition.start();
         isDictating = true;
         button.style.backgroundColor = '#d32f2f';
         button.innerText = '⏹️ Detener Dictado (Escuchando...)';
 
         recognition.onresult = (event) => {
-            let transcript = '';
+            let sessionTranscript = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                transcript += event.results[i][0].transcript;
+                sessionTranscript += event.results[i][0].transcript;
             }
-            textarea.value = transcript;
+            // Mantiene el texto anterior y anexa el nuevo dictado en tiempo real
+            textarea.value = baseText + sessionTranscript;
         };
 
         recognition.onerror = (event) => {
@@ -284,6 +291,21 @@ function toggleDictado(textareaId, buttonId) {
             isDictating = false;
             button.style.backgroundColor = '#2e7d32';
             button.innerText = '🎤 Dictar por Voz';
+        };
+
+        recognition.onend = () => {
+            if (isDictating) {
+                // Si el motor se detiene solo por una pausa muy larga, guardar base y reiniciar
+                baseText = textarea.value.trim();
+                if (baseText.length > 0) baseText += " ";
+                try {
+                    recognition.start();
+                } catch (e) {
+                    isDictating = false;
+                    button.style.backgroundColor = '#2e7d32';
+                    button.innerText = '🎤 Dictar por Voz';
+                }
+            }
         };
     }
 }
