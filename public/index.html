@@ -186,7 +186,7 @@
         <textarea id="clinicalNote" placeholder="La nota de la consulta procesada por IA aparecerá aquí..."></textarea>
     </div>
 
-    <!-- Columna Derecha: Documentos con Dictado Acumulativo -->
+    <!-- Columna Derecha: Documentos con Dictado Continuo Sin Borrado -->
     <div class="card">
         <h2>2. Documentos Médicos</h2>
         
@@ -238,9 +238,12 @@ let audioContext;
 let analyser;
 let microphone;
 let javascriptNode;
+
 let recognition;
 let isDictating = false;
-let baseText = "";
+let finalTranscript = ''; // Acumula de forma fija todo el texto confirmado
+let activeTextarea = null;
+let activeBtn = null;
 
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -248,6 +251,41 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'es-CL';
+
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript + ' ';
+            } else {
+                interimTranscript += event.results[i][0].transcript;
+            }
+        }
+
+        if (activeTextarea) {
+            activeTextarea.value = finalTranscript + interimTranscript;
+        }
+    };
+
+    recognition.onend = () => {
+        // Reinicio automático inmediato si la grabación debe continuar escuchando
+        if (isDictating) {
+            try {
+                recognition.start();
+            } catch (e) {
+                console.warn("Reorganizando servicio de reconocimiento de voz...");
+            }
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.error("Error dictado:", event.error);
+        if (event.error === 'no-speech' && isDictating) {
+            // Ignorar errores por silencio y mantenerse activo
+            return;
+        }
+    };
 }
 
 function toggleDictado(textareaId, buttonId) {
@@ -256,57 +294,27 @@ function toggleDictado(textareaId, buttonId) {
         return;
     }
 
-    const textarea = document.getElementById(textareaId);
-    const button = document.getElementById(buttonId);
+    activeTextarea = document.getElementById(textareaId);
+    activeBtn = document.getElementById(buttonId);
 
     if (isDictating) {
-        recognition.stop();
         isDictating = false;
-        button.style.backgroundColor = '#2e7d32';
-        button.innerText = '🎤 Dictar por Voz';
+        recognition.stop();
+        activeBtn.style.backgroundColor = '#2e7d32';
+        activeBtn.innerText = '🎤 Dictar por Voz';
     } else {
-        // Guardar el texto existente como base para acumular lo nuevo
-        baseText = textarea.value.trim();
-        if (baseText.length > 0) {
-            baseText += " ";
-        }
-
-        recognition.start();
         isDictating = true;
-        button.style.backgroundColor = '#d32f2f';
-        button.innerText = '⏹️ Detener Dictado (Escuchando...)';
-
-        recognition.onresult = (event) => {
-            let sessionTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                sessionTranscript += event.results[i][0].transcript;
-            }
-            // Mantiene el texto anterior y anexa el nuevo dictado en tiempo real
-            textarea.value = baseText + sessionTranscript;
-        };
-
-        recognition.onerror = (event) => {
-            console.error(event.error);
-            recognition.stop();
-            isDictating = false;
-            button.style.backgroundColor = '#2e7d32';
-            button.innerText = '🎤 Dictar por Voz';
-        };
-
-        recognition.onend = () => {
-            if (isDictating) {
-                // Si el motor se detiene solo por una pausa muy larga, guardar base y reiniciar
-                baseText = textarea.value.trim();
-                if (baseText.length > 0) baseText += " ";
-                try {
-                    recognition.start();
-                } catch (e) {
-                    isDictating = false;
-                    button.style.backgroundColor = '#2e7d32';
-                    button.innerText = '🎤 Dictar por Voz';
-                }
-            }
-        };
+        // Inicializar la transcripción final con lo que ya contenga el cuadro de texto
+        finalTranscript = activeTextarea.value ? activeTextarea.value.trim() + ' ' : '';
+        
+        activeBtn.style.backgroundColor = '#d32f2f';
+        activeBtn.innerText = '⏹️ Detener Dictado (Escuchando constantemente...)';
+        
+        try {
+            recognition.start();
+        } catch (e) {
+            console.log("Servicio iniciado.");
+        }
     }
 }
 
@@ -358,6 +366,14 @@ function stopRecording() {
 }
 
 function switchTab(tabName) {
+    if (isDictating && activeBtn) {
+        // Detener dictado activo antes de cambiar de pestaña
+        isDictating = false;
+        recognition.stop();
+        activeBtn.style.backgroundColor = '#2e7d32';
+        activeBtn.innerText = '🎤 Dictar por Voz';
+    }
+
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
