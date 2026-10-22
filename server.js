@@ -11,12 +11,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// Función para intentar con el modelo principal y alternar si hay sobrecarga
-async function generateWithFallback(contents) {
-    const models = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-    let lastError = null;
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    for (const modelName of models) {
+// Función para reintentar automáticamente si hay congestión en la API
+async function generateWithRetry(contents) {
+    const modelName = 'gemini-3.8-flash';
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
         try {
             const response = await ai.models.generateContent({
                 model: modelName,
@@ -24,11 +27,12 @@ async function generateWithFallback(contents) {
             });
             return response.text;
         } catch (err) {
-            console.warn(`Saturación o error con ${modelName}, reintentando...`);
-            lastError = err;
+            attempts++;
+            console.warn(`Intento ${attempts} fallido debido a congestión de API. Reintentando...`);
+            if (attempts >= maxAttempts) throw err;
+            await delay(1500); // Espera 1.5 segundos antes de reintentar
         }
     }
-    throw lastError;
 }
 
 // Endpoint para procesar el audio de la consulta médica
@@ -69,13 +73,13 @@ Analiza la siguiente grabación de audio de la consulta médica:
             { text: prompt }
         ];
 
-        const textResult = await generateWithFallback(contents);
+        const textResult = await generateWithRetry(contents);
         res.json({ success: true, text: textResult });
     } catch (error) {
         console.error("Error procesando audio:", error);
         res.status(500).json({ 
             success: false, 
-            error: "El servicio se encuentra con alta demanda en este momento. Por favor intente nuevamente en unos segundos." 
+            error: "La API de Gemini está experimentando tráfico muy alto en este momento. Por favor, reintente en unos segundos." 
         });
     }
 });
@@ -90,7 +94,7 @@ Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
 
 Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
 
-        const textResult = await generateWithFallback(prompt);
+        const textResult = await generateWithRetry(prompt);
         res.json({ success: true, text: textResult });
     } catch (error) {
         console.error("Error formateando documento:", error);
