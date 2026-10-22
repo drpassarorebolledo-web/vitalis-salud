@@ -13,7 +13,6 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// Función para reintentar automáticamente si hay congestión en la API
 async function generateWithRetry(contents) {
     const modelName = 'gemini-3.8-flash';
     let attempts = 0;
@@ -28,9 +27,9 @@ async function generateWithRetry(contents) {
             return response.text;
         } catch (err) {
             attempts++;
-            console.warn(`Intento ${attempts} fallido debido a congestión de API. Reintentando...`);
+            console.warn(`Intento ${attempts} fallido. Reintentando...`);
             if (attempts >= maxAttempts) throw err;
-            await delay(1500); // Espera 1.5 segundos antes de reintentar
+            await delay(1500);
         }
     }
 }
@@ -79,20 +78,24 @@ Analiza la siguiente grabación de audio de la consulta médica:
         console.error("Error procesando audio:", error);
         res.status(500).json({ 
             success: false, 
-            error: "La API de Gemini está experimentando tráfico muy alto en este momento. Por favor, reintente en unos segundos." 
+            error: "La API de Gemini está experimentando tráfico alto. Por favor, reintente en unos segundos." 
         });
     }
 });
 
-// Endpoint para dar formato a documentos (recetas, certificados, órdenes)
+// Endpoint para formatear documentos con desglose ordenado por ítem
 app.post('/api/format-doc', async (req, res) => {
     try {
         const { text, type, patient } = req.body;
-        const prompt = `Eres un asistente para el Dr. Anthony José Passaro Rebolledo (Medicina General y Familiar) en Vitalis Salud.
-Toma el siguiente dictado para un(a) ${type} del paciente ${patient}:
+        const prompt = `Eres un asistente médico experto para el Dr. Anthony José Passaro Rebolledo (Medicina General y Familiar) en Vitalis Salud.
+Toma el siguiente dictado o notas para un(a) ${type} del paciente ${patient}:
 "${text}"
 
-Estructúralo de forma profesional y limpia en español, corregido, formateado y listo para ser impreso en un documento oficial. Sin explicaciones adicionales, entrega solo el texto formateado.`;
+INSTRUCCIONES DE FORMATO:
+- Desglosa y separa cada medicamento, indicación o examen de forma independiente.
+- Cada ítem debe ir en una línea o párrafo separado, claramente espaciado del siguiente (por ejemplo, numerado o con viñetas limpias: 1. ..., 2. ...).
+- No amontones todo en un solo párrafo corrido. Deja suficiente espacio visual (saltos de línea dobles) entre cada indicación.
+- Entrega únicamente el contenido estructurado y profesional, sin texto introductorio ni explicaciones adicionales.`;
 
         const textResult = await generateWithRetry(prompt);
         res.json({ success: true, text: textResult });
